@@ -1,0 +1,15 @@
+# Secrets (use /etc/acurite/acurite.env on the Pi)
+.env
+*.env
+!systemd/acurite.env.example
+
+# Local logs and test captures
+*.log
+acurite.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
