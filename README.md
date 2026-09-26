@@ -1,5 +1,7 @@
 # Acurite → TimescaleDB ingest
 
+**Repository:** [github.com/AnachroNet/Acurite-Parser](https://github.com/AnachroNet/Acurite-Parser)
+
 Small toolchain that receives **Acurite** weather data from [rtl_433](https://github.com/merbanan/rtl_433) over RTL-SDR, normalizes it to a single JSON schema, maps each sensor to a site label, and inserts rows into a **TimescaleDB** hypertable on PostgreSQL. It is aimed at a Raspberry Pi (`raspberrypi.example.com`) talking to a central database host (`postgresql.example.com`), with a **systemd** unit keeping the pipeline running.
 
 **Components:** `parse_acurite_log.py` (dedupe + derived fields + location lookup), `load_readings.py` (Postgres insert), `device_locations.csv`, `rtl_433.conf`, and `scripts/run-acurite-pipeline.sh`. Site-specific values are documented in [CONFIGURATION.txt](CONFIGURATION.txt).
@@ -336,8 +338,7 @@ Allow the Pi in `pg_hba.conf` and firewall (**5432**). The loader connects as **
 
 ```bash
 sudo install -d -o sensors -g sensors -m 755 /opt/acurite
-# rsync or git clone into /opt/acurite
-sudo chown -R sensors:sensors /opt/acurite
+sudo -u sensors git clone https://github.com/AnachroNet/Acurite-Parser.git /opt/acurite
 sudo chmod 755 /opt/acurite/scripts/run-acurite-pipeline.sh
 sudo apt install -y python3 python3-psycopg2
 ```
@@ -374,7 +375,15 @@ sudo journalctl -u acurite.service -f
 
 ### 9. Updates
 
-Rebuild rtl_433 from `/tmp/rtl_433` when needed; sync this repo to `/opt/acurite` and `sudo systemctl restart acurite.service`.
+On the Pi, pull the latest from GitHub and restart the service:
+
+```bash
+cd /opt/acurite
+sudo -u sensors git pull
+sudo systemctl restart acurite.service
+```
+
+Rebuild rtl_433 from `/tmp/rtl_433` when needed (see step 3).
 
 ## Troubleshooting
 
