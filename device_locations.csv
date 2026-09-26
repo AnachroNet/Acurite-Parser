@@ -1,0 +1,11 @@
+# rtl_433 sensor id (JSON "id") -> site label (max 20 characters; stored as TEXT in Postgres).
+device_id,location
+5831,living_room
+4408,upstairs
+6700,basement
+232,breezeway
+3242,back_yard
+3468,bedroom
+3372,office
+5746,patio
+2945,garage

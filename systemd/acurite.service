@@ -1,0 +1,44 @@
+# Acurite rtl_433 -> Postgres pipeline
+#
+# Install (on the Pi):
+#   sudo install -d -o sensors -g sensors -m 755 /opt/acurite
+#   sudo rsync -a --exclude .git ./ /opt/acurite/   # from repo checkout
+#   sudo chmod 755 /opt/acurite/scripts/run-acurite-pipeline.sh
+#   sudo install -d -o root -m 755 /etc/acurite
+#   sudo cp systemd/acurite.env.example /etc/acurite/acurite.env
+#   sudo chmod 600 /etc/acurite/acurite.env
+#   sudo ${EDITOR:-nano} /etc/acurite/acurite.env   # set ACURITE_DB_PASSWORD
+#   sudo cp systemd/acurite.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now acurite.service
+#
+# User needs USB access (e.g. group plugdev) and read/execute on /opt/acurite.
+#
+#   sudo journalctl -u acurite.service -f
+#   sudo systemctl status acurite.service
+
+[Unit]
+Description=Acurite rtl_433 ingest to TimescaleDB
+Documentation=file:///opt/acurite/systemd/acurite.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sensors
+Group=sensors
+WorkingDirectory=/opt/acurite
+EnvironmentFile=-/etc/acurite/acurite.env
+ExecStart=/opt/acurite/scripts/run-acurite-pipeline.sh
+Restart=always
+RestartSec=10
+# Refresh rtl_433 periodically (clears demodulator/bitbuffer overload after long runs)
+RuntimeMaxSec=12h
+KillMode=control-group
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,96 @@
+Site-specific configuration
+===========================
+
+Replace example hostnames and users before production use (see [README.md](README.md)):
+
+  postgresql.example.com  -> your TimescaleDB/PostgreSQL server
+  raspberrypi.example.com -> your Raspberry Pi (rtl_433 host)
+  sensors                 -> Unix user that runs the ingest service
+
+Files to edit are grouped below. Prefer /etc/acurite/acurite.env for secrets
+and connection settings so scripts in /opt/acurite stay generic.
+
+
+/etc/acurite/acurite.env (from systemd/acurite.env.example)
+------------------------------------------------------------
+Used by: acurite.service, load_readings.py (via environment)
+
+  ACURITE_DB_HOST          PostgreSQL hostname (default in code: postgresql.example.com)
+  ACURITE_DB_PORT          Port (default: 5432)
+  ACURITE_DB_NAME          Database name (default: acurite)
+  ACURITE_DB_USER          DB role (default: acurite)
+  ACURITE_DB_PASSWORD      Required in production (default placeholder: replace_me)
+  ACURITE_TIMEZONE         IANA zone for rtl_433 "time" strings in JSON (default: America/New_York)
+
+  ACURITE_DIR              Install root (default: /opt/acurite)
+  RTL433_BIN               rtl_433 executable (default: rtl_433 on PATH)
+  RTL433_CONF              Config file path (default: $ACURITE_DIR/rtl_433.conf)
+  RTL433_ARGS              Extra rtl_433 CLI args after -c (e.g. -g 40)
+  RTL433_LOG               Set to 1 to send rtl_433 stderr to journal (default: discarded)
+  PYTHON                   Python interpreter (default: python3)
+
+
+systemd/acurite.service
+-----------------------
+  User, Group              Service account (default: sensors)
+  WorkingDirectory         Default: /opt/acurite
+  ExecStart                Default: /opt/acurite/scripts/run-acurite-pipeline.sh
+  RuntimeMaxSec            rtl_433 restart interval (default: 12h)
+
+
+scripts/run-acurite-pipeline.sh
+-------------------------------
+Defaults match the environment variables above; override via acurite.env.
+No hardcoded hostnames. Requires $ACURITE_DIR/rtl_433.conf to exist.
+
+
+load_readings.py
+----------------
+Same database settings as ACURITE_DB_* (read from environment or CLI):
+
+  --db-host, --db-port, --db-name, --db-user, --db-password
+  --timezone               Same as ACURITE_TIMEZONE
+  --batch-size             File loads only (default: 100)
+  --dry-run, --stats
+
+Built-in defaults if env unset: postgresql.example.com, acurite/acurite, replace_me.
+
+
+parse_acurite_log.py
+--------------------
+  device_locations.csv     Maps rtl_433 JSON "id" -> output "location" (max 20 chars)
+  --locations FILE         Alternate CSV path
+  --no-locations           Omit location (loader will skip rows)
+  --dedupe-mode, --no-dedupe, -o, --stats
+
+Default CSV path: device_locations.csv beside parse_acurite_log.py (/opt/acurite).
+
+
+/opt/acurite/rtl_433.conf
+---------------------------
+rtl_433 25.x keyword format (not CLI flags). Tune for your RF environment:
+
+  frequency                e.g. 433.92M
+  output null / output json   JSON-only stdout for the parser
+  pulse_detect ...         squelch, autolevel, etc.
+  protocol 0               Disables all decoders before enabling selected ones
+  protocol N               Acurite decoders enabled; other protocol lines commented
+
+Reference: /usr/local/etc/rtl_433/rtl_433.example.conf after rtl_433 install.
+
+
+PostgreSQL server (postgresql.example.com)
+------------------------------------------
+Not in this repo; configure on the DB host:
+
+  sql/schema.sql           Full TimescaleDB schema (readings, lightning, rain, grants)
+  Role password, pg_hba.conf, firewall for Pi -> port 5432
+
+
+Quick checklist
+---------------
+  [ ] /etc/acurite/acurite.env — ACURITE_DB_PASSWORD, ACURITE_DB_HOST, ACURITE_TIMEZONE
+  [ ] /opt/acurite/device_locations.csv — every sensor id
+  [ ] /opt/acurite/rtl_433.conf — frequency / squelch / protocols
+  [ ] systemd User= sensors in plugdev (USB)
+  [ ] PostgreSQL grants for ACURITE_DB_USER on readings
